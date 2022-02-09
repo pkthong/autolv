@@ -7,6 +7,8 @@ import re
 import pathlib
 from datetime import datetime, timezone
 import numpy as np
+#from copy import deepcopy
+import warnings
 
 READONLY_ATTRIBUTES = [
     "ID",
@@ -175,10 +177,13 @@ class Cluster(LV_Control, Sequence):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._ctrls = {}
+        self._errorOnSet = False
+        self._tuple_value = ()
         for name, attrs in kwargs.get("ctrls", {}).items():
             self._ctrls[name] = make_control(**attrs)
 
     def __getitem__(self, control):
+        print("getitem {}".format(control))
         if isinstance(control, int):
             control = list(self._ctrls)[control]
         return self._ctrls[control]
@@ -191,18 +196,29 @@ class Cluster(LV_Control, Sequence):
         self._setfp(self.name, values)
 
     def __setattr__(self, item, value):
+        if isinstance(tuple, type(value)):
+            self._tuple_value = deepcopy(value)
         if "_ctrls" in self.__dict__ and item in self._ctrls:
             self._ctrls[item].value = value
         elif item == "value":
             if isinstance(value, dict):
                 self.update(value)
             else:
-                for c, v in zip(self._ctrls, value):
-                    self._ctrls[c].value = v
+                try:
+                    print("cluster-set {0}".format(value))
+                    self._tuple_value = (value)
+                    for c, v in zip(self._ctrls, value):
+                        print (v)
+                        self._ctrls[c].value = v
+                    self._errorOnSet = False
+                except TypeError:
+                    warnings.warn("set cluster failed. Cluster will be returned as a tuple", RuntimeWarning, stacklevel=2)
+                    self._errorOnSet = True
         else:
             super().__setattr__(item, value)
 
     def __getattr__(self, item):
+        print ("__getattr__")
         if item in self._ctrls:
             value = self._ctrls[item]
         elif item == "value":
@@ -231,10 +247,14 @@ class Cluster(LV_Control, Sequence):
         raise NotImplementedError
 
     def as_dict(self):
+        print ("as_dict")
         """Return controls as a dict"""
+        if self._errorOnSet == True:
+            return {i:val for i, val in enumerate(self._tuple_value)}
         return self._ctrls
 
     def __repr__(self):
+        print ("__repr")
         return f"Cluster({self.as_dict()})"
 
     def __str__(self):
@@ -256,11 +276,13 @@ class Cluster(LV_Control, Sequence):
         return len(self) > 0
 
     def update(self, controls: dict):
+        print ("update")
         """Update from a dict"""
         for name in controls:
             self._ctrls[name].value = controls[name]
 
     def __dir__(self):
+        print ("__dir__")
         attrs = super().__dir__()
         attrs = [a for a in attrs if not a.startswith("_")]
         ctrls = []
@@ -274,10 +296,14 @@ class Cluster(LV_Control, Sequence):
 
     @property
     def value(self):
+        print ("get value")
         """Return cluster's values as list"""
         values = []
-        for _, ctrl in self._ctrls.items():
-            values.append(ctrl.value)
+        if self._errorOnSet:
+            values = list(self._tuple_value)
+        else:
+            for _, ctrl in self._ctrls.items():
+                values.append(ctrl.value)
         return values
 
 
