@@ -75,8 +75,12 @@ class VI:
         with TemporaryDirectory() as tmpdir:
             file = Path(tmpdir).joinpath(self.name)
             self._vi.ExportVIStrings(str(file.absolute()))
-            with open(file, "r", encoding="utf8") as f:
-                vistr = f.read()
+            try:
+                with open(file, "r", encoding="utf8") as f:
+                    vistr = f.read()
+            except UnicodeDecodeError:
+                with open(file, "r") as f:
+                    vistr = f.read()
         self._ctrls = {k: make_control(**v) for k, v in parse_vistrings(vistr).items()}
         for ctrl in self._ctrls.values():
             value = self._vi.GetControlValue(ctrl.name)

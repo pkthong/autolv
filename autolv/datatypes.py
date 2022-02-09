@@ -147,7 +147,10 @@ class Array(LV_Control):
         if item == "value":
             if isinstance(value, str) or not hasattr(value, "__iter__"):
                 raise TypeError(f"'{value}' not array like")
-            value = np.array(value)
+            if not is_ragged(value, False):
+                value = np.array(value)
+            else:
+                warnings.warn("set array failed. name = {}. Arrays of clusters not supported".format(self.name), RuntimeWarning, stacklevel=2)
         super().__setattr__(item, value)
 
     def __repr__(self):
@@ -183,7 +186,6 @@ class Cluster(LV_Control, Sequence):
             self._ctrls[name] = make_control(**attrs)
 
     def __getitem__(self, control):
-        print("getitem {}".format(control))
         if isinstance(control, int):
             control = list(self._ctrls)[control]
         return self._ctrls[control]
@@ -196,8 +198,6 @@ class Cluster(LV_Control, Sequence):
         self._setfp(self.name, values)
 
     def __setattr__(self, item, value):
-        if isinstance(tuple, type(value)):
-            self._tuple_value = deepcopy(value)
         if "_ctrls" in self.__dict__ and item in self._ctrls:
             self._ctrls[item].value = value
         elif item == "value":
@@ -205,20 +205,17 @@ class Cluster(LV_Control, Sequence):
                 self.update(value)
             else:
                 try:
-                    print("cluster-set {0}".format(value))
                     self._tuple_value = (value)
                     for c, v in zip(self._ctrls, value):
-                        print (v)
                         self._ctrls[c].value = v
                     self._errorOnSet = False
                 except TypeError:
-                    warnings.warn("set cluster failed. Cluster will be returned as a tuple", RuntimeWarning, stacklevel=2)
+                    warnings.warn("Set cluster failed. name = {}. Cluster will be returned as a tuple".format(self.name), RuntimeWarning, stacklevel=2)
                     self._errorOnSet = True
         else:
             super().__setattr__(item, value)
 
     def __getattr__(self, item):
-        print ("__getattr__")
         if item in self._ctrls:
             value = self._ctrls[item]
         elif item == "value":
@@ -247,14 +244,12 @@ class Cluster(LV_Control, Sequence):
         raise NotImplementedError
 
     def as_dict(self):
-        print ("as_dict")
         """Return controls as a dict"""
         if self._errorOnSet == True:
             return {i:val for i, val in enumerate(self._tuple_value)}
         return self._ctrls
 
     def __repr__(self):
-        print ("__repr")
         return f"Cluster({self.as_dict()})"
 
     def __str__(self):
@@ -276,13 +271,11 @@ class Cluster(LV_Control, Sequence):
         return len(self) > 0
 
     def update(self, controls: dict):
-        print ("update")
         """Update from a dict"""
         for name in controls:
             self._ctrls[name].value = controls[name]
 
     def __dir__(self):
-        print ("__dir__")
         attrs = super().__dir__()
         attrs = [a for a in attrs if not a.startswith("_")]
         ctrls = []
@@ -296,7 +289,6 @@ class Cluster(LV_Control, Sequence):
 
     @property
     def value(self):
-        print ("get value")
         """Return cluster's values as list"""
         values = []
         if self._errorOnSet:

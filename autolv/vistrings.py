@@ -138,7 +138,7 @@ def _recurse_ctrls(element: ET.Element) -> dict:
             tip = control.find("TIP").text
             attrs.update({"description": desc, "tip": tip})
             for part in control.find("PARTS"):
-                parttype = part.attrib["type"].lower().replace(" ", "")
+                parttype = part.attrib.get("type", "").lower().replace(" ", "")
                 try:
                     text = part.find("LABEL").find("STEXT").text
                 except AttributeError:
